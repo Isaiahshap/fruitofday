@@ -49,6 +49,12 @@ export default function FruitCarousel({ onDragEnd }: FruitCarouselProps) {
   const [isClient, setIsClient] = useState(false);
   const [randomRotations, setRandomRotations] = useState<Record<string, number>>({});
   const [randomDiscounts, setRandomDiscounts] = useState<Record<string, string>>({});
+  // Touch event state
+  const [touchDragging, setTouchDragging] = useState<Fruit | null>(null);
+  const [touchStartPos, setTouchStartPos] = useState({ x: 0, y: 0 });
+  const [touchCurrentPos, setTouchCurrentPos] = useState({ x: 0, y: 0 });
+  // Add state for potential drag fruit
+  const [potentialDragFruit, setPotentialDragFruit] = useState<Fruit | null>(null);
 
   // Set client-side flag after initial render
   useEffect(() => {
@@ -150,6 +156,52 @@ export default function FruitCarousel({ onDragEnd }: FruitCarouselProps) {
     }, 3000);
   };
 
+  // Handle touch events for mobile drag and drop
+  const handleTouchStart = (e: React.TouchEvent, fruit: Fruit) => {
+    const touch = e.touches[0];
+    setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    setTouchCurrentPos({ x: touch.clientX, y: touch.clientY });
+    setPotentialDragFruit(fruit);
+    
+    // Don't start dragging immediately - wait to see if it's a scroll or drag
+    // We'll determine this in the touch move handler
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const currentX = touch.clientX;
+    const currentY = touch.clientY;
+    
+    // If we're not already dragging a fruit, check if this should start a drag
+    if (!touchDragging && potentialDragFruit) {
+      // Calculate distance moved
+      const deltaX = Math.abs(currentX - touchStartPos.x);
+      const deltaY = Math.abs(currentY - touchStartPos.y);
+      
+      // If moved more vertically than horizontally by at least 10px, 
+      // consider it a drag rather than a scroll
+      if (deltaY > deltaX && deltaY > 10) {
+        setTouchDragging(potentialDragFruit);
+        setIsDragging(true);
+        e.preventDefault(); // Prevent scrolling while dragging
+      }
+    } else if (touchDragging) {
+      // Already dragging, update position
+      e.preventDefault(); // Prevent scrolling while dragging
+      setTouchCurrentPos({ x: currentX, y: currentY });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchDragging) {
+      setIsDragging(false);
+      // Notify parent component about the drag end
+      onDragEnd(touchDragging);
+      setTouchDragging(null);
+    }
+    setPotentialDragFruit(null);
+  };
+
   return (
     <div className="relative">
       {/* Moving background patterns */}
@@ -194,6 +246,7 @@ export default function FruitCarousel({ onDragEnd }: FruitCarouselProps) {
           {[...fruits, ...fruits, ...fruits].map((fruit, index) => (
             <motion.div
               key={`${fruit.id}-${index}`}
+              data-fruit-id={fruit.id}
               drag
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               dragElastic={1}
@@ -227,6 +280,9 @@ export default function FruitCarousel({ onDragEnd }: FruitCarouselProps) {
                 onDragEnd(fruit);
               }}
               draggable="true"
+              onTouchStart={(e) => handleTouchStart(e, fruit)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             >
               <div className="relative w-20 h-20 md:w-24 md:h-24 bg-white bg-opacity-80 p-2 rounded-lg shadow-md border-2 border-yellow-400">
                 {/* Random sale badges - only shown client-side */}
@@ -335,6 +391,28 @@ export default function FruitCarousel({ onDragEnd }: FruitCarouselProps) {
               partners. Your data may be sold to third parties. Standard text rates apply.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Touch drag ghost element */}
+      {touchDragging && (
+        <div 
+          className="fixed pointer-events-none z-50"
+          style={{
+            left: touchCurrentPos.x - 40,
+            top: touchCurrentPos.y - 40,
+            width: 80,
+            height: 80,
+            opacity: 0.8,
+          }}
+        >
+          <Image 
+            src={touchDragging.image} 
+            alt={touchDragging.name}
+            width={80}
+            height={80}
+            className="w-full h-full object-contain"
+          />
         </div>
       )}
     </div>

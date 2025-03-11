@@ -179,6 +179,8 @@ export default function Home() {
   const [sideFlashTexts, setSideFlashTexts] = useState<string[]>([]);
   const [flashingBoxesLeft, setFlashingBoxesLeft] = useState<{top: string, content: string, color: string}[]>([]);
   const [flashingBoxesRight, setFlashingBoxesRight] = useState<{top: string, content: string, color: string}[]>([]);
+  // Track if we're on a mobile device
+  const [isMobile, setIsMobile] = useState(false);
   
   // Run once after component mounts in browser
   useEffect(() => {
@@ -234,6 +236,19 @@ export default function Home() {
     };
   }, [isMounted, popups.length]);
   
+  useEffect(() => {
+    // Check if we're on a mobile device
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches ||
+                  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
   const handleDragEnd = (fruit: Fruit) => {
     console.log('Drag end:', fruit.name);
     setLastDraggedFruit(fruit);
@@ -242,8 +257,11 @@ export default function Home() {
     // If we were dragging over the drop zone when the drag ended, add the fruit
     if (isDraggingOver && basketFruits.length < 10) {
       console.log('Adding fruit directly on drag end');
-      setBasketFruits(prev => [...prev, fruit]);
+      setBasketFruits(prevBasket => [...prevBasket, fruit]);
       setHasAddedFruit(true);
+      playAddSound();
+      // 80% chance to show popup
+      if (Math.random() > 0.2) showFruitAddedPopup(fruit);
     }
   };
 
@@ -373,6 +391,28 @@ export default function Home() {
     );
     
   }, [isMounted]);
+
+  // Function to show fruit added popup
+  const showFruitAddedPopup = (fruit: Fruit) => {
+    const newPopup = {
+      id: Date.now(),
+      x: Math.random() * 80 + 10, // Random position between 10-90%
+      y: Math.random() * 80 + 10,
+      content: {
+        title: `${fruit.name} Added!`,
+        content: `You've added a fresh ${fruit.name} to your basket!`,
+        inputType: "none",
+        buttonText: "OK"
+      }
+    };
+    setPopups(prev => [...prev, newPopup]);
+  };
+
+  // Mock sound effect function
+  const playAddSound = () => {
+    // In a real app, you'd play a sound here
+    console.log('🔊 Fruit added sound played');
+  };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-4 md:p-8 bg-gradient-to-b from-fuchsia-500 to-yellow-300 relative overflow-hidden">
@@ -560,9 +600,6 @@ export default function Home() {
         <header className="text-center bg-white bg-opacity-70 p-4 rounded-lg neon-border">
           <h1 className="text-4xl font-bold text-fuchsia-600 mb-2 neon-text">मायर शार्लट का फल ऑफ द डे!!!</h1>
           <p className="text-red-600 font-bold">MAYER SCHARLAT 100% REAL! NO FAKE! DRAG फल TO THE टोकरी!!!</p>
-          <div className="mt-2 bg-yellow-300 p-2 text-red-700 font-bold animate-pulse">
-            MAYER SCHARLAT LIMITED TIME OFFER! GET 50% OFF!!! TODAY ONLY!!!
-          </div>
         </header>
 
         {/* Download buttons with Mayer references */}
@@ -577,9 +614,18 @@ export default function Home() {
             VERIFY FOR MAYER SCHARLAT
           </button>
         </div>
+        
+        {/* Mobile instruction banner */}
+        {isMobile && isMounted && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded shadow-md">
+            <p className="font-bold">Mobile Detected!</p>
+            <p>Tap and hold on a fruit, then drag it to the basket to add it.</p>
+          </div>
+        )}
 
+        {/* Basket and drop zone */}
         <DropZone 
-          onDrop={handleDrop} 
+          onDrop={handleDrop}
           onDragOverChange={handleDragOverChange}
           className="relative z-30"
         >
@@ -591,7 +637,7 @@ export default function Home() {
         </DropZone>
 
         <div className="mt-auto">
-          <h2 className="text-xl font-semibold text-white mb-2 bg-fuchsia-700 p-2 neon-text text-center">
+          <h2 className="text-center text-xl font-bold text-red-600 mb-4 neon-text">
             MAYER SCHARLAT कहते हैं: फल चुनें - SELECT FRUIT NOW!!!
           </h2>
           <FruitCarousel onDragEnd={handleDragEnd} />

@@ -61,6 +61,39 @@ export default function DropZone({ onDrop, onDragOverChange, children, className
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isClient]);
 
+  // Check if a touch position is over the drop zone
+  const isTouchOverDropZone = (touchX: number, touchY: number) => {
+    if (!dropZoneRef.current) return false;
+    
+    const rect = dropZoneRef.current.getBoundingClientRect();
+    return (
+      touchX >= rect.left &&
+      touchX <= rect.right &&
+      touchY >= rect.top &&
+      touchY <= rect.bottom
+    );
+  };
+
+  // Handle touch events for mobile drag and drop
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 0) return;
+    
+    const touch = e.touches[0];
+    const isOverNow = isTouchOverDropZone(touch.clientX, touch.clientY);
+    
+    if (isOverNow !== isOver) {
+      setIsOver(isOverNow);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    // If touch ends while over the drop zone, trigger the drop
+    if (isOver) {
+      onDrop();
+    }
+    setIsOver(false);
+  };
+
   return (
     <motion.div
       ref={dropZoneRef}
@@ -90,6 +123,9 @@ export default function DropZone({ onDrop, onDragOverChange, children, className
         console.log('Drop event triggered');
         onDrop();
       }}
+      // Add touch event handlers for mobile
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       animate={{
         scale: isOver ? 1.02 : 1,
       }}
